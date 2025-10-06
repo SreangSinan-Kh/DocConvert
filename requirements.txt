@@ -1,9 +1,8 @@
-python-telegram-bot==20.5
+python-telegram-bot==20.4 # ផ្លាស់ប្តូរទៅ 20.4
 Pillow
 pytesseract
 PyPDF2
 pdf2image
 ffmpeg-python
-# ត្រូវប្រាកដថា Gunicorn និង gevent ត្រូវបានដំឡើងសម្រាប់ web server
 gunicorn
 gevent
