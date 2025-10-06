@@ -1,16 +1,15 @@
-# render.yaml
+# render.yaml (កែប្រែត្រង់បន្ទាត់នេះ)
 services:
   - type: web
-    name: DocConvert-bot # ដាក់ឈ្មោះដែលអ្នកចូលចិត្ត
+    name: DocConvert-bot
     env: python
-    # ដំឡើង FFmpeg និង Tesseract-OCR (ត្រូវការសម្រាប់មុខងារ Media/OCR)
+    # ... (រក្សា buildCommand ឲ្យនៅដដែល) ...
     buildCommand: apt-get update && apt-get install -y ffmpeg tesseract-ocr -y && pip install -r requirements.txt
     
-    # ប្រើ python main.py ជា Start Command
-    # ព្រោះ application.run_webhook() នឹងដំណើរការ Web Server ដោយខ្លួនឯង
+    # === កែប្រែត្រង់នេះ ===
     startCommand: python main.py 
     
-    plan: free # ប្រើ Free Tier
+    plan: free
     envVars:
       - key: BOT_TOKEN
-        value: 8358054959:AAHj7HQZqEd94V20j8kvWkY6UCseXsz10-Q # កំណត់ Token របស់អ្នកនៅទីនេះ
+        value: 8358054959:AAHj7HQZqEd94V20j8kvWkY6UCseXsz10-Q
