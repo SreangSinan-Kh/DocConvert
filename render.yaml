@@ -1,10 +1,22 @@
-# នៅក្នុង render.yaml
+# render.yaml
 services:
   - type: web
     name: DocConvert-bot
     env: python
     
-    # === ត្រូវប្រាកដថា buildCommand មានលក្ខណៈដូចនេះ ===
+    # 1. កំណត់កំណែ Python ដែលត្រូវគ្នាដើម្បីជៀសវាង Incompatibility Bug
+    pythonVersion: 3.12.1 
+    
+    # 2. Build Command: ដំឡើង FFmpeg និង Tesseract-OCR (ត្រូវការសម្រាប់ Media/OCR)
     buildCommand: apt-get update && apt-get install -y ffmpeg tesseract-ocr -y && pip install -r requirements.txt
     
-    # ... (StartCommand របស់អ្នកគឺ python main.py) ...
+    # 3. Start Command: ដំណើរការ Bot ដោយផ្ទាល់ (ដើម្បីជៀសវាង Gunicorn Error)
+    startCommand: python main.py 
+    
+    plan: free # រក្សាទុកជា Free Tier
+    
+    # Environment Variables (ត្រូវតែមាន BOT_TOKEN)
+    envVars:
+      - key: BOT_TOKEN
+        value: 8358054959:AAHj7HQZqEd94V20j8kvWkY6UCseXsz10-Q 
+      # Render នឹងបន្ថែម RENDER_EXTERNAL_URL និង PORT ដោយស្វ័យប្រវត្តិ
