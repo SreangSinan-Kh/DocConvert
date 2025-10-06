@@ -4,3 +4,5 @@ pytesseract
 PyPDF2
 pdf2image
 ffmpeg-python
+gunicorn  # បន្ថែមបន្ទាត់នេះ
+gevent    # បន្ថែម gevent ផងដែរ ព្រោះអ្នកប្រើ --worker-class gevent
