@@ -19,24 +19,26 @@ from telegram.ext import (
 )
 from PIL import Image
 import pytesseract
-from typing import Final # បន្ថែម Final សម្រាប់ type hint
+from typing import Final
 
 # ពិនិត្យ Library
 try:
     from PyPDF2 import PdfReader, PdfWriter, PdfMerger
     from pdf2image import convert_from_path
 except ImportError:
+    # ក្នុង Render buildCommand នឹងដំឡើង Library ទាំងអស់
+    # នេះគ្រាន់តែជាការពិនិត្យក្នុងតំបន់ប៉ុណ្ណោះ
     print("!!! កំហុស៖ សូមប្រាកដថាបានតម្លើង Library ទាំងអស់៖ pip install PyPDF2 pdf2image Pillow python-telegram-bot ffmpeg-python")
     sys.exit(1)
 
 # --- ការកំណត់តម្លៃសំខាន់ៗសម្រាប់ Render Deployment ---
 # BOT_TOKEN ត្រូវបានយកពី Environment Variable (ដូចដែលបានកំណត់ក្នុង render.yaml)
-# ជំនួស 8358054959:AAHj7HQZqEd94W20j8kvWkY6UCseXsz10-Q ជាមួយ Token ពិតរបស់អ្នកក្នុង render.yaml
-BOT_TOKEN: Final = os.environ.get("BOT_TOKEN", "YOUR_FALLBACK_TOKEN_HERE") 
+BOT_TOKEN: Final = os.environ.get("BOT_TOKEN", "") 
 MAX_FILE_SIZE: Final = 50 * 1024 * 1024 # កំណត់ទំហំ File អតិបរមា 50 MB
 
 # ទទួលបាន URL និង PORT ពី Render Environment
-WEBHOOK_URL: Final = os.environ.get("RENDER_EXTERNAL_URL", "") # Render កំណត់ URL នេះដោយស្វ័យប្រវត្តិ
+# RENDER_EXTERNAL_URL គឺជា URL HTTPS ពេញលេញរបស់ Render Service
+WEBHOOK_URL: Final = os.environ.get("RENDER_EXTERNAL_URL", "") 
 PORT: Final = int(os.environ.get("PORT", "8000")) 
 
 # កំណត់ 'ស្ថានភាព' (States)
@@ -53,15 +55,13 @@ PORT: Final = int(os.environ.get("PORT", "8000"))
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# --- ពិនិត្យការដំឡើង FFmpeg (លុបចោលមុខងារនេះ ព្រោះយើងប្រើ apt-get ក្នុង render.yaml) ---
-# def is_ffmpeg_installed():
-#     return shutil.which("ffmpeg") is not None
-# ទុកវាជា True ដើម្បីអោយ Bot អាចបន្តដំណើរការបាន
+# មុខងារនេះត្រូវបានរក្សាទុក ប៉ុន្តែវាគួរតែត្រឡប់ True ព្រោះ FFmpeg ត្រូវបានដំឡើងតាមរយៈ apt-get ក្នុង render.yaml
 def is_ffmpeg_installed():
     return True 
 
 # --- អនុគមន៍ដំណើរការនៅខាងក្រោយ (Background Tasks) ---
-# មុខងារទាំងអស់ខាងក្រោមនេះ គឺដូចគ្នានឹងកូដដើមរបស់អ្នក
+# (រក្សាទុកអនុគមន៍ដំណើរការនៅខាងក្រោយទាំងអស់របស់អ្នក ដោយសារពួកវាត្រឹមត្រូវ)
+
 async def pdf_to_img_task(chat_id, file_path, msg, context, fmt):
     try:
         images = convert_from_path(file_path, dpi=200, fmt=fmt)
@@ -71,11 +71,13 @@ async def pdf_to_img_task(chat_id, file_path, msg, context, fmt):
             image.save(out_path, fmt.upper())
             await context.bot.send_photo(chat_id=chat_id, photo=open(out_path, 'rb'))
             os.remove(out_path)
-        await context.bot.delete_message(chat_id=chat_id, message_id=msg.message_id)
     except Exception as e:
         await context.bot.edit_message_text(f"មានបញ្ហាក្នុងការបំប្លែង PDF ទៅជារូបភាព។\nកំហុស: {e}", chat_id=chat_id, message_id=msg.message_id)
     finally:
         if os.path.exists(file_path): os.remove(file_path)
+        if msg: 
+            try: await context.bot.delete_message(chat_id=chat_id, message_id=msg.message_id)
+            except Exception: pass
 
 async def merge_pdf_task(chat_id, file_paths, msg, context):
     output_path = f"merged_{chat_id}.pdf"
@@ -172,7 +174,6 @@ async def img_to_pdf_task(chat_id, file_paths, msg, context):
 async def img_to_text_task(chat_id, file_path, msg, context):
     try:
         image = Image.open(file_path)
-        # Note: Tesseract-OCR ត្រូវតែដំឡើងលើ Render (តាមរយៈ render.yaml) ទើបមុខងារនេះដំណើរការ
         text = pytesseract.image_to_string(image, lang='khm+eng')
         await context.bot.edit_message_text("បំប្លែងរូបភាពទៅជាអក្សរបានជោគជ័យ! កំពុងផ្ញើ...", chat_id=chat_id, message_id=msg.message_id)
         if not text.strip():
@@ -188,11 +189,9 @@ async def img_to_text_task(chat_id, file_path, msg, context):
             except Exception: pass
 
 async def media_conversion_task(chat_id, file_path, output_format, msg, context, media_type='audio'):
-    """អនុគមន៍រួមសម្រាប់បំប្លែងឯកសារសម្លេង និងវីដេអូ"""
     output_path = f"converted_{chat_id}.{output_format}"
     try:
         await context.bot.edit_message_text(f"កំពុងបំប្លែងទៅជា {output_format.upper()}... ការងារនេះអាចត្រូវការពេលវេលាយូរបន្តិចសម្រាប់ឯកសារធំៗ។", chat_id=chat_id, message_id=msg.message_id)
-        # Note: FFmpeg ត្រូវតែដំឡើងលើ Render (តាមរយៈ render.yaml) ទើបមុខងារនេះដំណើរការ
         ffmpeg.input(file_path).output(output_path).run(overwrite_output=True)
         await context.bot.edit_message_text("បំប្លែងបានជោគជ័យ! កំពុងផ្ញើ...", chat_id=chat_id, message_id=msg.message_id)
         if media_type == 'audio':
@@ -262,8 +261,8 @@ async def extract_archive_task(chat_id, file_path, msg, context):
             try: await context.bot.delete_message(chat_id=chat_id, message_id=msg.message_id)
             except Exception: pass
 
-# --- អនុគមន៍សម្រាប់គ្រប់គ្រងលំហូរការងារ (ដូចកូដដើម) ---
-# ... (អនុគមន៍ start, help_command, start_pdf_to_img, select_audio_output, ល...)
+# --- អនុគមន៍សម្រាប់គ្រប់គ្រងលំហូរការងារ (រក្សាទុកទាំងអស់ដូចដើម) ---
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [
         [InlineKeyboardButton("📄 PDF ទៅជា រូបភាព", callback_data='pdf_to_img')],
@@ -474,7 +473,7 @@ async def start_audio_converter(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query; await query.answer()
     if not is_ffmpeg_installed():
         await query.edit_message_text("❌ កំហុស៖ FFmpeg មិនត្រូវបានដំឡើងទេ។ មុខងារនេះមិនអាចប្រើបានទេ។")
-        return SELECT_ACTION # ត្រឡប់ទៅ Menu មេវិញ
+        return SELECT_ACTION 
     audio_formats = ['AAC', 'AIFF', 'FLAC', 'M4A', 'M4R', 'MMF', 'MP3', 'OGG', 'OPUS', 'WAV', 'WMA']
     keyboard = create_format_buttons(audio_formats, "audio")
     await query.edit_message_text(text="សូមជ្រើសរើសទ្រង់ទ្រាយឯកសារសម្លេងដែលអ្នកចង់បាន៖", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -602,7 +601,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 # --- អនុគមន៍ថ្មីសម្រាប់ទទួល Commands ដោយផ្ទាល់ ---
-# ... (Commands handlers ផ្សេងៗទៀតដូចកូដដើម) ...
 
 async def start_pdf_to_img_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """ ចាប់ផ្តើម PDF to Image តាមរយៈ Command """
@@ -672,20 +670,19 @@ async def start_archive_manager_command(update: Update, context: ContextTypes.DE
 
 # --- Main Application Runner (កែប្រែសម្រាប់ Render Webhook) ---
 def main() -> None:
+    # ពិនិត្យ Environment Variables
     if not BOT_TOKEN:
         print("!!! កំហុស៖ BOT_TOKEN មិនត្រូវបានកំណត់។ សូមកំណត់វានៅក្នុង Environment Variable (render.yaml)។")
         sys.exit(1)
         
     if not WEBHOOK_URL:
-        print("!!! កំហុស៖ RENDER_EXTERNAL_URL មិនត្រូវបានកំណត់។ ត្រូវប្រាកដថាប្រើ Render Environment។")
-        # ក្នុងករណីមិនមាន RENDER_EXTERNAL_URL (ឧ. ពេលរត់ក្នុងបរិយាកាសផ្សេង) 
-        # យើងអាចប្រើ polling ជំនួស ប៉ុន្តែវាមិនដំណើរការលើ Render Web Service ទេ
-        # ដូច្នេះយើងត្រូវបង្ខំវាអោយបរាជ័យ ដើម្បីកុំអោយមានការយល់ច្រឡំ
+        print("!!! កំហុស៖ RENDER_EXTERNAL_URL មិនត្រូវបានកំណត់។ ត្រូវប្រាកដថាប្រើ Render Web Service Environment។")
+        # មិនអាចដំណើរការ Webhook ដោយគ្មាន URL ពេញលេញបានទេ។
         sys.exit(1)
 
     application = Application.builder().token(BOT_TOKEN).read_timeout(30).build()
     
-    # ... (Conversation Handler ដូចកូដដើមរបស់អ្នក) ...
+    # --- Conversation Handler (រក្សាទុកដូចដើម) ---
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
