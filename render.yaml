@@ -1,0 +1,11 @@
+# render.yaml
+services:
+  - type: web
+    name: telegram-bot
+    env: python
+    buildCommand: apt-get update && apt-get install -y ffmpeg tesseract-ocr && pip install -r requirements.txt
+    startCommand: python your_script_name.py # ជំនួស your_script_name.py ដោយឈ្មោះកូដ Python របស់អ្នក (ឧ. main_bot.py)
+    plan: free # ប្រើ Free Tier
+    envVars:
+      - key: BOT_TOKEN
+        value: 8358054959:AAHj7HQZqEd94V20j8kvWkY6UCseXsz10-Q # ដាក់ Bot Token របស់អ្នក
