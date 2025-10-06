@@ -1,15 +1,13 @@
-# render.yaml (កែប្រែត្រង់បន្ទាត់នេះ)
+# នៅក្នុង render.yaml
 services:
   - type: web
     name: DocConvert-bot
     env: python
-    # ... (រក្សា buildCommand ឲ្យនៅដដែល) ...
+    pythonVersion: 3.12.4  # <=== បន្ថែមបន្ទាត់នេះ
+    
     buildCommand: apt-get update && apt-get install -y ffmpeg tesseract-ocr -y && pip install -r requirements.txt
     
-    # === កែប្រែត្រង់នេះ ===
     startCommand: python main.py 
     
     plan: free
-    envVars:
-      - key: BOT_TOKEN
-        value: 8358054959:AAHj7HQZqEd94V20j8kvWkY6UCseXsz10-Q
+    # ... (EnvVars របស់អ្នក) ...
