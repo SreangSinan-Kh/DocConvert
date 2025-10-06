@@ -3,11 +3,8 @@ services:
   - type: web
     name: DocConvert-bot
     env: python
-    pythonVersion: 3.12.4  # <=== បន្ថែមបន្ទាត់នេះ
     
+    # === ត្រូវប្រាកដថា buildCommand មានលក្ខណៈដូចនេះ ===
     buildCommand: apt-get update && apt-get install -y ffmpeg tesseract-ocr -y && pip install -r requirements.txt
     
-    startCommand: python main.py 
-    
-    plan: free
-    # ... (EnvVars របស់អ្នក) ...
+    # ... (StartCommand របស់អ្នកគឺ python main.py) ...
