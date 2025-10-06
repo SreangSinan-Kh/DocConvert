@@ -27,17 +27,28 @@ try:
     from pdf2image import convert_from_path
 except ImportError:
     # ក្នុង Render buildCommand នឹងដំឡើង Library ទាំងអស់
-    # នេះគ្រាន់តែជាការពិនិត្យក្នុងតំបន់ប៉ុណ្ណោះ
     print("!!! កំហុស៖ សូមប្រាកដថាបានតម្លើង Library ទាំងអស់៖ pip install PyPDF2 pdf2image Pillow python-telegram-bot ffmpeg-python")
     sys.exit(1)
 
-# --- ការកំណត់តម្លៃសំខាន់ៗសម្រាប់ Render Deployment ---
-# BOT_TOKEN ត្រូវបានយកពី Environment Variable (ដូចដែលបានកំណត់ក្នុង render.yaml)
-BOT_TOKEN: Final = os.environ.get("BOT_TOKEN", "") 
-MAX_FILE_SIZE: Final = 50 * 1024 * 1024 # កំណត់ទំហំ File អតិបរមា 50 MB
+# --- ការកំណត់ Tesseract Path សម្រាប់ Render (ដំណោះស្រាយចំពោះបញ្ហា PATH) ---
+try:
+    # ទីតាំងស្តង់ដារសម្រាប់ Tesseract បន្ទាប់ពីដំឡើងដោយ apt-get នៅលើ Linux
+    TESSERACT_PATH = shutil.which("tesseract")
+    if TESSERACT_PATH:
+        pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
+    else:
+        # Fallback ទៅកាន់ទីតាំងស្តង់ដារបំផុត
+        pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+except Exception as e:
+    # ធានាថាវាត្រូវបានកំណត់ បើទោះជាការពិនិត្យដំបូងបរាជ័យក៏ដោយ
+    pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract' 
+    print(f"!!! Warning: Could not set Tesseract path automatically. Using fallback. Error: {e}")
 
-# ទទួលបាន URL និង PORT ពី Render Environment
-# RENDER_EXTERNAL_URL គឺជា URL HTTPS ពេញលេញរបស់ Render Service
+
+# --- ការកំណត់តម្លៃសំខាន់ៗសម្រាប់ Render Deployment ---
+BOT_TOKEN: Final = os.environ.get("BOT_TOKEN", "") 
+MAX_FILE_SIZE: Final = 50 * 1024 * 1024 
+
 WEBHOOK_URL: Final = os.environ.get("RENDER_EXTERNAL_URL", "") 
 PORT: Final = int(os.environ.get("PORT", "8000")) 
 
@@ -55,12 +66,11 @@ PORT: Final = int(os.environ.get("PORT", "8000"))
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# មុខងារនេះត្រូវបានរក្សាទុក ប៉ុន្តែវាគួរតែត្រឡប់ True ព្រោះ FFmpeg ត្រូវបានដំឡើងតាមរយៈ apt-get ក្នុង render.yaml
+# ទុកវាជា True ព្រោះវាត្រូវបានដំឡើងដោយ render.yaml
 def is_ffmpeg_installed():
     return True 
 
 # --- អនុគមន៍ដំណើរការនៅខាងក្រោយ (Background Tasks) ---
-# (រក្សាទុកអនុគមន៍ដំណើរការនៅខាងក្រោយទាំងអស់របស់អ្នក ដោយសារពួកវាត្រឹមត្រូវ)
 
 async def pdf_to_img_task(chat_id, file_path, msg, context, fmt):
     try:
@@ -261,7 +271,7 @@ async def extract_archive_task(chat_id, file_path, msg, context):
             try: await context.bot.delete_message(chat_id=chat_id, message_id=msg.message_id)
             except Exception: pass
 
-# --- អនុគមន៍សម្រាប់គ្រប់គ្រងលំហូរការងារ (រក្សាទុកទាំងអស់ដូចដើម) ---
+# --- អនុគមន៍សម្រាប់គ្រប់គ្រងលំហូរការងារ ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     keyboard = [
@@ -677,12 +687,11 @@ def main() -> None:
         
     if not WEBHOOK_URL:
         print("!!! កំហុស៖ RENDER_EXTERNAL_URL មិនត្រូវបានកំណត់។ ត្រូវប្រាកដថាប្រើ Render Web Service Environment។")
-        # មិនអាចដំណើរការ Webhook ដោយគ្មាន URL ពេញលេញបានទេ។
         sys.exit(1)
 
     application = Application.builder().token(BOT_TOKEN).read_timeout(30).build()
     
-    # --- Conversation Handler (រក្សាទុកដូចដើម) ---
+    # --- Conversation Handler ---
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
